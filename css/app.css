@@ -1,0 +1,436 @@
+/* ───── 全体 ───── */
+:root {
+    --felt: #1e5d3f;
+    --felt-dark: #154631;
+    --panel: rgba(0, 0, 0, 0.18);
+    --text: #f3f1e8;
+    --accent: #f2c14e;
+    --win: #e85d4a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    background: var(--felt);
+    color: var(--text);
+    font-family: system-ui, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    font-size: 15px;
+    /* ダブルタップでの拡大を防ぎ、牌のタップを素早く反応させる */
+    touch-action: manipulation;
+}
+
+button {
+    font: inherit;
+    color: #1d1d1d;
+    background: #f3f1e8;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+button:active { transform: translateY(1px); }
+button.on { background: var(--accent); }
+button.win { background: var(--win); color: white; font-weight: bold; }
+button.pass { background: #c9c5b8; }
+button.primary { background: var(--accent); font-weight: bold; }
+button.big { font-size: 1.2rem; padding: 12px 36px; }
+button.link { background: none; color: var(--text); text-decoration: underline; padding: 2px 6px; }
+
+/* ───── 牌 ───── */
+svg.tile {
+    width: 40px;
+    aspect-ratio: 3 / 4;
+    height: auto;
+    flex: none;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+    user-select: none;
+}
+svg.tile.result { width: 30px; }
+svg.tile.demo-tile { width: 48px; }
+svg.tile.called { opacity: 0.35; }
+
+
+/* ───── 開始画面 ───── */
+.start {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 32px 16px;
+    text-align: center;
+}
+.start h1 { font-size: 2.6rem; margin: 0 0 4px; letter-spacing: 0.3em; }
+h1:focus { outline: none; }   /* Blazor が見出しに自動でフォーカスしたときの枠を消す */
+.start .sub { margin: 0 0 20px; opacity: 0.85; }
+.start .demo { display: flex; gap: 6px; justify-content: center; margin-bottom: 24px; }
+.settings { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.setting { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.setting .label { width: 4em; text-align: right; opacity: 0.85; }
+.setting input { font: inherit; padding: 8px; border-radius: 8px; border: none; width: 12em; }
+.help { font-size: 0.9rem; opacity: 0.8; margin-top: 20px; }
+
+/* ───── 卓(横向き 16:9) ─────
+   .stage を「サイズのコンテナ」にして、中の大きさはすべて cqh(卓の高さの 1%)で指定する。
+   卓の中心は (50cqw, 44cqh)。 */
+/* 画面に固定した枠。アドレスバーの出入りに合わせて、実際に見えている範囲の大きさになる */
+.viewport {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0d2b1d;
+    overflow: hidden;
+    container-type: size;
+}
+/* 卓は枠(.viewport)の大きさを基準に、16:9 で収まる最大の大きさにする。
+   vh/dvh は端末によって見えている高さと一致しないため使わない */
+.stage {
+    position: relative;
+    width: min(100cqw, 177.78cqh);
+    height: min(56.25cqw, 100cqh);
+    container-type: size;
+    overflow: hidden;
+    font-size: 2.6cqh;
+    background: radial-gradient(ellipse at 50% 44%, #2c7d55 0%, #21643f 45%, #174a31 100%);
+}
+.stage button {
+    font-size: 2.6cqh;
+    padding: 0.9cqh 2cqh;
+    border-radius: 1.2cqh;
+    box-shadow: 0 0.4cqh 0 rgba(0, 0, 0, 0.35);
+}
+
+/* 席ごとの回転レイヤー: 卓の中心を軸に、自分(0)を基準として下家 -90°、対面 180°、上家 90° */
+.table-layer {
+    position: absolute;
+    left: 50cqw;
+    top: 44cqh;
+    width: 86cqh;
+    height: 86cqh;
+    pointer-events: none;
+}
+.table-layer.pos-0 { transform: translate(-50%, -50%); }
+.table-layer.pos-1 { transform: translate(-50%, -50%) rotate(-90deg); }
+.table-layer.pos-2 { transform: translate(-50%, -50%) rotate(180deg); }
+.table-layer.pos-3 { transform: translate(-50%, -50%) rotate(90deg); }
+
+/* 河: 中央パネルのすぐ手前に 6 枚ずつ並べる */
+.river {
+    position: absolute;
+    left: 50%;
+    top: calc(50% + 14.5cqh);
+    transform: translateX(-50%);
+    /* 6 枚 + 間隔 + 横向きのリーチ宣言牌の分。幅の半分が中央パネルの半分(13.5cqh)を超えないようにする */
+    width: 27.2cqh;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 0.15cqh;
+}
+svg.tile.river-tile { width: 4.2cqh; }
+svg.tile.river-tile.riichi { transform: rotate(90deg); margin: 0 0.7cqh; }
+
+/* 他家の手牌(裏向き): 回転レイヤーの手前の辺 */
+.opp-hand {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: flex-end;
+    gap: 0.1cqh;
+    white-space: nowrap;
+}
+.opp-name { font-size: 1.8cqh; opacity: 0.8; margin-right: 1cqh; align-self: center; }
+svg.tile.back-tile { width: 2.6cqh; }
+svg.tile.opp-meld-tile { width: 2.8cqh; }
+.opp-hand .meld { margin-left: 0.8cqh; }
+.meld { display: inline-flex; gap: 0.1cqh; }
+
+/* 中央パネル */
+.center-panel {
+    position: absolute;
+    left: 50cqw;
+    top: 44cqh;
+    width: 27cqh;
+    height: 27cqh;
+    transform: translate(-50%, -50%);
+    background: #10301f;
+    border: 0.4cqh solid #3f7558;
+    border-radius: 2cqh;
+    box-shadow: inset 0 0 2cqh rgba(0, 0, 0, 0.5);
+}
+.round-info {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4cqh;
+}
+.round-info .round { font-size: 3.6cqh; font-weight: bold; letter-spacing: 0.1em; }
+.round-info .remain { font-size: 2.4cqh; color: var(--accent); }
+.round-info .sticks { font-size: 1.8cqh; opacity: 0.8; }
+
+/* 各家の風と点数: パネル全体を回転させ、手前の辺に表示する */
+.seat-info {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 0.8cqh;
+    pointer-events: none;
+}
+.seat-info.pos-1 { transform: rotate(-90deg); }
+.seat-info.pos-2 { transform: rotate(180deg); }
+.seat-info.pos-3 { transform: rotate(90deg); }
+.seat-line {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.8cqh;
+    padding: 0.2cqh 1cqh;
+    border-radius: 1cqh;
+    border-bottom: 0.5cqh solid transparent;
+}
+.seat-line.active { border-bottom-color: var(--accent); background: rgba(242, 193, 78, 0.12); }
+.seat-line .wind {
+    display: inline-block;
+    width: 3cqh;
+    line-height: 3cqh;
+    text-align: center;
+    border-radius: 0.6cqh;
+    background: rgba(255, 255, 255, 0.15);
+    font-weight: bold;
+}
+.seat-line .wind.dealer { background: var(--win); }
+.seat-line .score { font-size: 2.6cqh; font-variant-numeric: tabular-nums; }
+/* リーチ棒 */
+.seat-line .stick {
+    position: absolute;
+    left: 50%;
+    top: -1.4cqh;
+    width: 12cqh;
+    height: 1cqh;
+    transform: translateX(-50%);
+    background: #f7f4ea;
+    border-radius: 0.5cqh;
+}
+.seat-line .stick::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.8cqh;
+    height: 0.8cqh;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--win);
+}
+
+/* 左上: ドラ・出来事 */
+.dora-panel {
+    position: absolute;
+    left: 2cqh;
+    top: 2cqh;
+    padding: 1cqh 1.4cqh;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 1.4cqh;
+}
+.panel-label { font-size: 1.8cqh; opacity: 0.8; margin-bottom: 0.5cqh; }
+.dora-tiles { display: flex; gap: 0.3cqh; }
+svg.tile.dora-tile { width: 3.6cqh; }
+.log { margin-top: 0.8cqh; font-size: 1.8cqh; opacity: 0.85; max-width: 24cqh; }
+
+.quit {
+    position: absolute;
+    right: 2cqh;
+    top: 2cqh;
+}
+.stage button.quit { background: rgba(0, 0, 0, 0.35); color: var(--text); box-shadow: none; font-size: 2cqh; }
+.stage button.fullscreen { right: 14cqh; }
+
+/* 全画面にできなかったときの案内 */
+.notice {
+    position: absolute;
+    left: 50%;
+    top: 12cqh;
+    transform: translateX(-50%);
+    max-width: 90cqh;
+    padding: 1.2cqh 2.4cqh;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 1.4cqh;
+    font-size: 2.2cqh;
+    text-align: center;
+    z-index: 5;
+}
+
+/* 自分の手牌(手前) */
+.my-hand {
+    position: absolute;
+    left: 50cqw;
+    bottom: 1.5cqh;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: flex-end;
+    gap: 0.2cqh;
+    padding-top: 2cqh;
+}
+svg.tile.hand-tile {
+    width: 7cqh;
+    cursor: pointer;
+    transition: transform 0.08s;
+    filter: drop-shadow(0 0.5cqh 0.4cqh rgba(0, 0, 0, 0.45));
+}
+svg.tile.hand-tile.selected { transform: translateY(-2cqh); }
+svg.tile.hand-tile.dim { filter: brightness(0.6) drop-shadow(0 0.5cqh 0.4cqh rgba(0, 0, 0, 0.45)); cursor: default; }
+svg.tile.hand-tile.idle { cursor: default; }
+.draw-gap { display: inline-block; width: 1.6cqh; }
+
+.my-melds {
+    position: absolute;
+    right: 2cqh;
+    bottom: 1.5cqh;
+    display: flex;
+    gap: 1cqh;
+}
+svg.tile.my-meld-tile { width: 4.6cqh; }
+
+/* 操作ボタン(右下、手牌の上) */
+.actions {
+    position: absolute;
+    right: 3cqh;
+    bottom: 14cqh;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1cqh;
+}
+.actions .ask { display: flex; align-items: center; gap: 0.8cqh; font-weight: bold; text-shadow: 0 0.2cqh 0.4cqh rgba(0, 0, 0, 0.6); }
+.actions .buttons { display: flex; gap: 1.2cqh; flex-wrap: wrap; justify-content: flex-end; max-width: 80cqh; }
+svg.tile.ask-tile { width: 4cqh; }
+svg.tile.btn-tile { width: 2.6cqh; }
+.stage button.win { font-size: 3.2cqh; padding: 1cqh 3cqh; }
+.stage button.riichi-btn { background: #f5d76e; font-weight: bold; }
+.stage button.riichi-btn.on { background: var(--accent); outline: 0.4cqh solid #fff; }
+
+.error {
+    position: absolute;
+    left: 2cqh;
+    bottom: 14cqh;
+    max-width: 60cqh;
+    max-height: 30cqh;
+    overflow: auto;
+    white-space: pre-wrap;
+    background: #400;
+    padding: 1cqh;
+    border-radius: 1cqh;
+    font-size: 1.4cqh;
+}
+
+/* 縦向きのときだけ、横向きにするよう案内する */
+.rotate-hint { display: none; }
+@media (orientation: portrait) {
+    .rotate-hint {
+        display: block;
+        position: fixed;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+}
+
+.gap { display: inline-block; width: 10px; }
+
+/* ───── 結果ダイアログ ───── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10;
+}
+.dialog {
+    background: #fbf8ee;
+    color: #222;
+    border-radius: 12px;
+    padding: 16px 18px;
+    width: min(520px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    text-align: center;
+}
+.dialog h2 { margin: 0 0 10px; }
+.dialog button { margin: 10px 4px 0; background: #e2ddcd; }
+.dialog button.primary { background: var(--accent); }
+.win-block { border-bottom: 1px solid #ddd5bd; padding-bottom: 10px; margin-bottom: 10px; }
+.win-head { font-weight: bold; margin-bottom: 6px; }
+.win-hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; margin-bottom: 6px; }
+.yaku { list-style: none; padding: 0; margin: 6px auto; max-width: 260px; }
+.yaku li { display: flex; justify-content: space-between; }
+.points strong { font-size: 1.3rem; margin-left: 8px; color: #b3261e; }
+.scores { margin: 8px auto; border-collapse: collapse; }
+.scores td { padding: 2px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.scores td:first-child { text-align: left; }
+.scores .plus { color: #1b7f3b; font-weight: bold; }
+.scores .minus { color: #b3261e; font-weight: bold; }
+.scores tr.me td { font-weight: bold; background: #f3e7b8; }
+.seed { font-size: 0.8rem; opacity: 0.7; }
+
+/* ───── Blazor の読み込み表示・エラー表示 ───── */
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    color: #222;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+#blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: 0.75rem; top: 0.5rem; }
+
+.loading-progress {
+    position: relative;
+    display: block;
+    width: 8rem;
+    height: 8rem;
+    margin: 20vh auto 1rem auto;
+}
+.loading-progress circle {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.2);
+    stroke-width: 0.6rem;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+}
+.loading-progress circle:last-child {
+    stroke: var(--accent);
+    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+    transition: stroke-dasharray 0.05s ease-in-out;
+}
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    font-weight: bold;
+    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+}
+.loading-progress-text:after { content: var(--blazor-load-percentage-text, "読み込み中"); }
+.loading-note { text-align: center; opacity: 0.7; font-size: 0.9rem; }

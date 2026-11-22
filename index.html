@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>麻雀</title>
+    <!-- ホーム画面に追加して開くと、アドレスバーのない全画面・横向きで起動する -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#0d2b1d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="麻雀" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <base href="/publicMahjong/" />
+    <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+    <div id="app">
+        <svg class="loading-progress">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div class="loading-progress-text"></div>
+        <p class="loading-note">初回は読み込みに少し時間がかかります</p>
+    </div>
+
+    <div id="blazor-error-ui">
+        エラーが発生しました。
+        <a href="." class="reload">再読み込み</a>
+        <span class="dismiss">×</span>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>
